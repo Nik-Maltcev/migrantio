@@ -1,0 +1,104 @@
+import pytest
+from unittest.mock import AsyncMock, MagicMock
+from telegram import Update, User, Message, CallbackQuery, Chat
+from src.bot import (
+    start,
+    show_countries,
+    show_subscription,
+    show_info,
+    show_categories,
+    show_category_content,
+    handle_menu,
+    CB_MENU,
+    CB_COUNTRY,
+    CB_CATEGORY
+)
+
+@pytest.fixture
+def update():
+    update = MagicMock(spec=Update)
+    update.effective_user = MagicMock(spec=User)
+    update.effective_user.id = 123
+    update.effective_chat = MagicMock(spec=Chat)
+    update.effective_chat.id = 123
+    return update
+
+@pytest.fixture
+def context():
+    context = MagicMock()
+    return context
+
+@pytest.mark.asyncio
+async def test_start_command(update, context):
+    update.callback_query = None
+    update.message = AsyncMock(spec=Message)
+
+    await start(update, context)
+
+    update.message.reply_text.assert_called_once()
+    args, kwargs = update.message.reply_text.call_args
+    assert "WELCOME MESSAGE" in kwargs['text']
+    assert kwargs['reply_markup'].inline_keyboard is not None
+
+@pytest.mark.asyncio
+async def test_start_callback(update, context):
+    update.callback_query = AsyncMock(spec=CallbackQuery)
+    update.message = None
+
+    await start(update, context)
+
+    update.callback_query.edit_message_text.assert_called_once()
+    args, kwargs = update.callback_query.edit_message_text.call_args
+    assert "WELCOME MESSAGE" in kwargs['text']
+
+@pytest.mark.asyncio
+async def test_show_countries(update, context):
+    update.callback_query = AsyncMock(spec=CallbackQuery)
+
+    await show_countries(update, context)
+
+    update.callback_query.edit_message_text.assert_called_once()
+    args, kwargs = update.callback_query.edit_message_text.call_args
+    assert "СТРАНЫ" == kwargs['text']
+    # Check if countries are in the keyboard
+    buttons = [btn.text for row in kwargs['reply_markup'].inline_keyboard for btn in row]
+    assert "Италия" in buttons
+    assert "Испания" in buttons
+
+@pytest.mark.asyncio
+async def test_show_categories(update, context):
+    update.callback_query = AsyncMock(spec=CallbackQuery)
+    update.callback_query.data = f"{CB_COUNTRY}Италия"
+
+    await show_categories(update, context)
+
+    update.callback_query.edit_message_text.assert_called_once()
+    args, kwargs = update.callback_query.edit_message_text.call_args
+    assert "КАТЕГОРИИ (Италия)" == kwargs['text']
+    # Check if categories are in the keyboard
+    buttons = [btn.text for row in kwargs['reply_markup'].inline_keyboard for btn in row]
+    assert "Медицина" in buttons
+    assert "Визы" in buttons
+
+@pytest.mark.asyncio
+async def test_show_category_content(update, context):
+    update.callback_query = AsyncMock(spec=CallbackQuery)
+    update.callback_query.data = f"{CB_CATEGORY}Италия|Медицина"
+
+    await show_category_content(update, context)
+
+    update.callback_query.edit_message_text.assert_called_once()
+    args, kwargs = update.callback_query.edit_message_text.call_args
+    assert "Информация по теме: Медицина в стране Италия" in kwargs['text']
+
+@pytest.mark.asyncio
+async def test_handle_menu_countries(update, context):
+    update.callback_query = AsyncMock(spec=CallbackQuery)
+    update.callback_query.data = f"{CB_MENU}countries"
+
+    await handle_menu(update, context)
+
+    # Should call show_countries, which edits message
+    update.callback_query.edit_message_text.assert_called_once()
+    args, kwargs = update.callback_query.edit_message_text.call_args
+    assert "СТРАНЫ" == kwargs['text']
