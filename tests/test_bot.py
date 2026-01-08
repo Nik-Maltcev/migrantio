@@ -77,19 +77,19 @@ async def test_show_categories(update, context):
     assert "КАТЕГОРИИ (Италия)" == kwargs['text']
     # Check if categories are in the keyboard
     buttons = [btn.text for row in kwargs['reply_markup'].inline_keyboard for btn in row]
-    assert "Медицина" in buttons
-    assert "Визы" in buttons
+    assert "Информация про страну" in buttons
+    assert "Визовые вопросы" in buttons
 
 @pytest.mark.asyncio
 async def test_show_category_content(update, context):
     update.callback_query = AsyncMock(spec=CallbackQuery)
-    update.callback_query.data = f"{CB_CATEGORY}Италия|Медицина"
+    update.callback_query.data = f"{CB_CATEGORY}Италия|Визовые вопросы"
 
     await show_category_content(update, context)
 
     update.callback_query.edit_message_text.assert_called_once()
     args, kwargs = update.callback_query.edit_message_text.call_args
-    assert "Информация по теме: Медицина в стране Италия" in kwargs['text']
+    assert "Информация по теме: Визовые вопросы в стране Италия" in kwargs['text']
 
 @pytest.mark.asyncio
 async def test_handle_menu_countries(update, context):
