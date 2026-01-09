@@ -88,8 +88,24 @@ SUBSCRIPTIONS = [
     "ВСЕ СТРАНЫ ГОД 4990 РУБ"
 ]
 
+CITIES = {
+    "США": ["Нью-Йорк", "Лос-Анджелес", "Чикаго", "Хьюстон", "Финикс", "Филадельфия", "Сан-Антонио", "Сан-Диего", "Даллас", "Сан-Хосе"],
+    "Турция": ["Стамбул", "Анкара", "Измир", "Бурса", "Анталья", "Адана", "Конья", "Шанлыурфа", "Газиантеп", "Мерсин"],
+    "Тайланд": ["Бангкок", "Пхукет", "Чиангмай", "Паттайя", "Краби", "Самуи", "Хуахин", "Хатъяй", "Удонтхани", "Накхонратчасима"],
+    "Казахстан": ["Алматы", "Астана", "Шымкент", "Актобе", "Караганда", "Тараз", "Усть-Каменогорск", "Павлодар", "Атырау", "Семей"],
+    "Германия": ["Берлин", "Гамбург", "Мюнхен", "Кельн", "Франкфурт", "Штутгарт", "Дюссельдорф", "Дортмунд", "Эссен", "Лейпциг"],
+    "Франция": ["Париж", "Марсель", "Лион", "Тулуза", "Ницца", "Нант", "Страсбург", "Монпелье", "Бордо", "Лилль"],
+    "Испания": ["Мадрид", "Барселона", "Валенсия", "Севилья", "Сарагоса", "Малага", "Мурсия", "Пальма", "Лас-Пальмас", "Бильбао"],
+    "Италия": ["Рим", "Милан", "Неаполь", "Турин", "Палермо", "Генуя", "Болонья", "Флоренция", "Бари", "Катания"],
+    "Индонезия": ["Джакарта", "Сурабая", "Бандунг", "Медан", "Бали", "Семаранг", "Макасар", "Палембанг", "Тангеранг", "Депок"],
+    "Грузия": ["Тбилиси", "Батуми", "Кутаиси", "Рустави", "Гори", "Зугдиди", "Поти", "Хашури", "Самтредиа", "Сенаки"],
+    "Армения": ["Ереван", "Гюмри", "Ванадзор", "Вагаршапат", "Абовян", "Капан", "Раздан", "Армавир", "Арташат", "Иджеван"],
+    "Сербия": ["Белград", "Нови-Сад", "Ниш", "Крагуевац", "Суботица", "Зренянин", "Панчево", "Чачак", "Крушевац", "Кралево"]
+}
+
 # Callback data prefixes
 CB_COUNTRY = "country_"
+CB_CITY = "city_"
 CB_CATEGORY = "cat_"
 CB_BACK = "back_"
 CB_MENU = "menu_"
@@ -168,40 +184,78 @@ async def show_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def show_cities(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     country = query.data.removeprefix(CB_COUNTRY)
 
-    # Store selected country in context if needed, but for now just show categories
+    # Store country in user_data
+    context.user_data['country'] = country
+
+    cities = CITIES.get(country, [])
 
     keyboard = []
     row = []
-    for cat in CATEGORIES:
-        row.append(InlineKeyboardButton(cat, callback_data=f"{CB_CATEGORY}{country}|{cat}"))
+    for city in cities:
+        row.append(InlineKeyboardButton(city, callback_data=f"{CB_CITY}{city}"))
         if len(row) == 2:
             keyboard.append(row)
             row = []
     if row:
         keyboard.append(row)
 
+    # Add "All cities" option
+    keyboard.append([InlineKeyboardButton("Все города", callback_data=f"{CB_CITY}Все города")])
     keyboard.append([InlineKeyboardButton("Назад", callback_data=f"{CB_MENU}countries")])
+
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
-        text=f"КАТЕГОРИИ ({country})",
+        text=f"ГОРОДА ({country})",
+        reply_markup=reply_markup
+    )
+
+async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    city = query.data.removeprefix(CB_CITY)
+    context.user_data['city'] = city
+
+    country = context.user_data.get('country', 'Unknown')
+
+    keyboard = []
+    row = []
+    for cat in CATEGORIES:
+        # Pass only category, rely on user_data for context
+        row.append(InlineKeyboardButton(cat, callback_data=f"{CB_CATEGORY}{cat}"))
+        if len(row) == 2:
+            keyboard.append(row)
+            row = []
+    if row:
+        keyboard.append(row)
+
+    # Back button goes to show_cities, which needs CB_COUNTRY + country
+    keyboard.append([InlineKeyboardButton("Назад", callback_data=f"{CB_COUNTRY}{country}")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await query.edit_message_text(
+        text=f"КАТЕГОРИИ ({country}, {city})",
         reply_markup=reply_markup
     )
 
 async def show_category_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    data = query.data.removeprefix(CB_CATEGORY)
-    country, category = data.split("|")
+    category = query.data.removeprefix(CB_CATEGORY)
 
-    text = f"Информация по теме: {category} в стране {country}.\n\n(Текст заглушка)"
+    country = context.user_data.get('country', 'Unknown')
+    city = context.user_data.get('city', 'Unknown')
 
-    keyboard = [[InlineKeyboardButton("Назад", callback_data=f"{CB_COUNTRY}{country}")]]
+    text = f"Информация по теме: {category} в стране {country}, город {city}.\n\n(Текст заглушка)"
+
+    # Back button goes to show_categories, which needs CB_CITY + city
+    keyboard = [[InlineKeyboardButton("Назад", callback_data=f"{CB_CITY}{city}")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
     await query.edit_message_text(
@@ -232,7 +286,8 @@ def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(handle_menu, pattern=f"^{CB_MENU}"))
-    application.add_handler(CallbackQueryHandler(show_categories, pattern=f"^{CB_COUNTRY}"))
+    application.add_handler(CallbackQueryHandler(show_cities, pattern=f"^{CB_COUNTRY}"))
+    application.add_handler(CallbackQueryHandler(show_categories, pattern=f"^{CB_CITY}"))
     application.add_handler(CallbackQueryHandler(show_category_content, pattern=f"^{CB_CATEGORY}"))
     application.add_handler(CallbackQueryHandler(lambda u, c: u.callback_query.answer(), pattern="^noop$"))
 
