@@ -204,7 +204,7 @@ async def show_cities(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not cities:
         logging.info(f"No cities for {country}, going directly to categories")
         context.user_data['city'] = "Все города"
-        await show_categories_direct(query, context, country, "Все города")
+        await show_categories_direct(query, context, country, "Все города", has_cities=False)
         return
 
     keyboard = []
@@ -228,7 +228,7 @@ async def show_cities(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-async def show_categories_direct(query, context, country, city):
+async def show_categories_direct(query, context, country, city, has_cities=True):
     """Helper function to show categories without processing callback data."""
     keyboard = []
     row = []
@@ -241,14 +241,26 @@ async def show_categories_direct(query, context, country, city):
     if row:
         keyboard.append(row)
 
-    # Back button goes to show_cities, which needs CB_COUNTRY + country
-    keyboard.append([InlineKeyboardButton("Назад", callback_data=f"{CB_COUNTRY}{country}")])
+    # Back button logic:
+    # - If country has cities, go back to cities list
+    # - If country has no cities, go back to countries list
+    if has_cities:
+        keyboard.append([InlineKeyboardButton("Назад", callback_data=f"{CB_COUNTRY}{country}")])
+    else:
+        keyboard.append([InlineKeyboardButton("Назад", callback_data=f"{CB_MENU}countries")])
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    await query.edit_message_text(
-        text=f"КАТЕГОРИИ ({country}, {city})",
-        reply_markup=reply_markup
-    )
+    try:
+        await query.edit_message_text(
+            text=f"КАТЕГОРИИ ({country}, {city})",
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        # If message is not modified (same content), just ignore
+        if "Message is not modified" not in str(e):
+            logging.error(f"Error editing message: {e}")
+            raise
 
 async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -261,7 +273,10 @@ async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     logging.info(f"show_categories called: country={country}, city={city}, callback_data={query.data}")
 
-    await show_categories_direct(query, context, country, city)
+    # Check if country has cities
+    has_cities = country in CITIES and len(CITIES[country]) > 0
+    
+    await show_categories_direct(query, context, country, city, has_cities=has_cities)
 
 async def show_category_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
