@@ -111,8 +111,9 @@ async def test_show_category_content(update, context):
     update.callback_query = AsyncMock(spec=CallbackQuery)
     context.user_data['country'] = "Италия"
     context.user_data['city'] = "Рим"
-    # Callback format: cat_Category
-    update.callback_query.data = f"{CB_CATEGORY}Визовые вопросы"
+    # Callback format: cat_<ID> where ID is numeric
+    # "Визовые вопросы" is at index 3
+    update.callback_query.data = f"{CB_CATEGORY}3"
 
     await show_category_content(update, context)
 

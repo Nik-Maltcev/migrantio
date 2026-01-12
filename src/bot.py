@@ -81,6 +81,10 @@ CATEGORIES = [
     "бизнес",
     "автомобили"
 ]
+
+# Category ID mapping to avoid callback_data length limit (64 bytes)
+CATEGORY_IDS = {i: cat for i, cat in enumerate(CATEGORIES)}
+CATEGORY_TO_ID = {cat: i for i, cat in enumerate(CATEGORIES)}
 SUBSCRIPTIONS = [
     "МЕСЯЦ 199 руб",
     "ГОД 1000",
@@ -228,9 +232,9 @@ async def show_categories_direct(query, context, country, city):
     """Helper function to show categories without processing callback data."""
     keyboard = []
     row = []
-    for cat in CATEGORIES:
-        # Pass only category, rely on user_data for context
-        row.append(InlineKeyboardButton(cat, callback_data=f"{CB_CATEGORY}{cat}"))
+    for cat_id, cat in CATEGORY_IDS.items():
+        # Use short numeric ID instead of full category name
+        row.append(InlineKeyboardButton(cat, callback_data=f"{CB_CATEGORY}{cat_id}"))
         if len(row) == 2:
             keyboard.append(row)
             row = []
@@ -262,7 +266,15 @@ async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_category_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    category = query.data.removeprefix(CB_CATEGORY)
+    
+    # Get category ID from callback and convert to category name
+    category_id_str = query.data.removeprefix(CB_CATEGORY)
+    try:
+        category_id = int(category_id_str)
+        category = CATEGORY_IDS.get(category_id, 'Unknown')
+    except ValueError:
+        category = 'Unknown'
+        logging.error(f"Invalid category ID: {category_id_str}")
 
     country = context.user_data.get('country', 'Unknown')
     city = context.user_data.get('city', 'Unknown')
