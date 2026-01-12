@@ -191,11 +191,14 @@ async def show_cities(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Store country in user_data
     context.user_data['country'] = country
+    
+    logging.info(f"show_cities called: country={country}, callback_data={query.data}")
 
     cities = CITIES.get(country, [])
 
     # If no cities defined for this country, go directly to categories with "Все города"
     if not cities:
+        logging.info(f"No cities for {country}, going directly to categories")
         context.user_data['city'] = "Все города"
         await show_categories_direct(query, context, country, "Все города")
         return
@@ -251,6 +254,8 @@ async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['city'] = city
 
     country = context.user_data.get('country', 'Unknown')
+    
+    logging.info(f"show_categories called: country={country}, city={city}, callback_data={query.data}")
 
     await show_categories_direct(query, context, country, city)
 
