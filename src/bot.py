@@ -194,6 +194,12 @@ async def show_cities(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     cities = CITIES.get(country, [])
 
+    # If no cities defined for this country, go directly to categories with "Все города"
+    if not cities:
+        context.user_data['city'] = "Все города"
+        await show_categories_direct(query, context, country, "Все города")
+        return
+
     keyboard = []
     row = []
     for city in cities:
@@ -215,15 +221,8 @@ async def show_cities(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    city = query.data.removeprefix(CB_CITY)
-    context.user_data['city'] = city
-
-    country = context.user_data.get('country', 'Unknown')
-
+async def show_categories_direct(query, context, country, city):
+    """Helper function to show categories without processing callback data."""
     keyboard = []
     row = []
     for cat in CATEGORIES:
@@ -243,6 +242,17 @@ async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text=f"КАТЕГОРИИ ({country}, {city})",
         reply_markup=reply_markup
     )
+
+async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    city = query.data.removeprefix(CB_CITY)
+    context.user_data['city'] = city
+
+    country = context.user_data.get('country', 'Unknown')
+
+    await show_categories_direct(query, context, country, city)
 
 async def show_category_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
